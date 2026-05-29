@@ -7,8 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PDF-Lib zum Bearbeiten des PDFs -->
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-    <!-- Fontkit für eigene Schriftarten (Open Sans) -->
-    <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.min.js"></script>
 </head>
 <body class="bg-gray-100 p-4 md:p-8 font-sans">
 
@@ -143,26 +141,9 @@
                 const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
                 const page = pdfDoc.getPages()[0];
 
-                // 3. Eigene Schriftart (Open Sans) einbinden - MIT RETTUNGS-FALLSCHIRM
-                let fontReg, fontBold;
-                try {
-                    pdfDoc.registerFontkit(fontkit);
-                    
-                    const urlFontReg = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/opensans/static/OpenSans-Regular.ttf';
-                    const urlFontBold = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/opensans/static/OpenSans-Bold.ttf';
-                    
-                    const [fontRegBytes, fontBoldBytes] = await Promise.all([
-                        fetch(urlFontReg).then(res => { if(!res.ok) throw new Error(); return res.arrayBuffer(); }),
-                        fetch(urlFontBold).then(res => { if(!res.ok) throw new Error(); return res.arrayBuffer(); })
-                    ]);
-                    
-                    fontReg = await pdfDoc.embedFont(fontRegBytes);
-                    fontBold = await pdfDoc.embedFont(fontBoldBytes);
-                } catch (fontError) {
-                    console.warn("Konnte Open Sans nicht laden. Nutze Standard-Schriftart als Fallback.");
-                    fontReg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-                    fontBold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
-                }
+                // 3. Standard-Schriftarten nutzen (100% zuverlässig, sieht aus wie Arial)
+                const fontReg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+                const fontBold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
 
                 // 4. Werte auslesen
                 const empfaenger = document.getElementById('inEmpfaenger').value;
@@ -196,7 +177,7 @@
                     });
                 };
 
-                // NEU: Hilfsfunktion für rechtsbündigen Text (für die Beträge)
+                // Hilfsfunktion für rechtsbündigen Text (für die Beträge & Rechnungsdaten)
                 const drawRight = (text, rightX, y, size = 11, font = fontReg) => {
                     if(!text) return; 
                     const textWidth = font.widthOfTextAtSize(text, size);
@@ -214,35 +195,36 @@
                 // X = Links/Rechts | Y = Oben/Unten (0 ist ganz UNTEN auf der Seite)
                 // ---------------------------------------------------------
                 
+                const startX = 80;  // Neuer linker Rand (weiter nach rechts gerückt)
+                const rightX = 520; // Rechter Rand (für Beträge und Rechnungs-Infos)
+                
                 // Empfänger-Block
-                draw(empfaenger, 60, 610, 11, fontBold);
-                draw(name, 60, 595);
-                draw(strasse, 60, 580);
-                draw(ort, 60, 565);
+                draw(empfaenger, startX, 610, 11, fontBold);
+                draw(name, startX, 595);
+                draw(strasse, startX, 580);
+                draw(ort, startX, 565);
 
-                // Rechnungsdaten (jetzt untereinander gestapelt)
-                // Die X-Koordinate (hier 420) anpassen, falls der Text zu nah oder zu weit von "DATUM:" entfernt ist
-                draw(nr, 420, 480);
-                draw(datum, 420, 465);
-                draw(faellig, 420, 450);
+                // Rechnungsdaten (jetzt mit integriertem Text und auf Höhe der Adresse!)
+                drawRight("RECHNUNGSNR.:   " + nr, rightX, 610);
+                drawRight("DATUM:   " + datum, rightX, 595);
+                drawRight("FÄLLIG:   " + faellig, rightX, 580);
 
-                // Posten (Y-Werte gehen nach unten. Beträge sind RECHTSBÜNDIG bei der Linie X=500)
-                // Wenn die Beträge zu weit links/rechts stehen, ändere die 500
+                // Posten 
                 if (pos1 || betrag1 > 0) {
-                    draw(pos1, 60, 380);
-                    drawRight(formatCurrency(betrag1), 500, 380);
+                    draw(pos1, startX, 380);
+                    drawRight(formatCurrency(betrag1), rightX, 380);
                 }
                 if (pos2 || betrag2 > 0) {
-                    draw(pos2, 60, 360);
-                    drawRight(formatCurrency(betrag2), 500, 360);
+                    draw(pos2, startX, 360);
+                    drawRight(formatCurrency(betrag2), rightX, 360);
                 }
                 if (pos3 || betrag3 > 0) {
-                    draw(pos3, 60, 340);
-                    drawRight(formatCurrency(betrag3), 500, 340);
+                    draw(pos3, startX, 340);
+                    drawRight(formatCurrency(betrag3), rightX, 340);
                 }
                 
                 // Gesamt-Summe (Rechtsbündig)
-                drawRight(formatCurrency(gesamtBetrag), 500, 310, 11, fontBold);
+                drawRight(formatCurrency(gesamtBetrag), rightX, 310, 11, fontBold);
 
                 // ---------------------------------------------------------
 

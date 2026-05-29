@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PDF-Lib zum Bearbeiten des PDFs -->
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <!-- Fontkit für eigene Schriftarten (Open Sans) -->
+    <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.min.js"></script>
 </head>
 <body class="bg-gray-100 p-4 md:p-8 font-sans">
 
@@ -138,9 +140,19 @@
                 const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
                 const page = pdfDoc.getPages()[0];
 
-                // 3. Schriftarten einbinden
-                const fontReg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-                const fontBold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+                // 3. Eigene Schriftart (Open Sans) einbinden
+                pdfDoc.registerFontkit(fontkit);
+                
+                const urlFontReg = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/opensans/static/OpenSans-Regular.ttf';
+                const urlFontBold = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/opensans/static/OpenSans-Bold.ttf';
+                
+                const [fontRegBytes, fontBoldBytes] = await Promise.all([
+                    fetch(urlFontReg).then(res => res.arrayBuffer()),
+                    fetch(urlFontBold).then(res => res.arrayBuffer())
+                ]);
+                
+                const fontReg = await pdfDoc.embedFont(fontRegBytes);
+                const fontBold = await pdfDoc.embedFont(fontBoldBytes);
 
                 // 4. Werte auslesen
                 const empfaenger = document.getElementById('inEmpfaenger').value;
@@ -162,11 +174,24 @@
                 const betrag3 = parseFloat(document.getElementById('inBetrag3').value) || 0;
                 const gesamtBetrag = betrag1 + betrag2 + betrag3;
 
-                // Hilfsfunktion zum Zeichnen von Text
+                // Hilfsfunktion zum Zeichnen von Text (Linksbündig)
                 const draw = (text, x, y, size = 11, font = fontReg) => {
                     if(!text) return; 
                     page.drawText(text, {
                         x: x,
+                        y: y,
+                        size: size,
+                        font: font,
+                        color: PDFLib.rgb(0, 0, 0),
+                    });
+                };
+
+                // NEU: Hilfsfunktion für rechtsbündigen Text (für die Beträge)
+                const drawRight = (text, rightX, y, size = 11, font = fontReg) => {
+                    if(!text) return; 
+                    const textWidth = font.widthOfTextAtSize(text, size);
+                    page.drawText(text, {
+                        x: rightX - textWidth,
                         y: y,
                         size: size,
                         font: font,
@@ -180,32 +205,34 @@
                 // ---------------------------------------------------------
                 
                 // Empfänger-Block
-                draw(empfaenger, 60, 620, 11, fontBold);
-                draw(name, 60, 605);
-                draw(strasse, 60, 590);
-                draw(ort, 60, 575);
+                draw(empfaenger, 60, 610, 11, fontBold);
+                draw(name, 60, 595);
+                draw(strasse, 60, 580);
+                draw(ort, 60, 565);
 
-                // Rechnungsdaten 
-                draw(nr, 160, 480);
-                draw(datum, 400, 480);
-                draw(faellig, 400, 465);
+                // Rechnungsdaten (jetzt untereinander gestapelt)
+                // Die X-Koordinate (hier 420) anpassen, falls der Text zu nah oder zu weit von "DATUM:" entfernt ist
+                draw(nr, 420, 480);
+                draw(datum, 420, 465);
+                draw(faellig, 420, 450);
 
-                // Posten (Y-Werte gehen schrittweise nach unten)
+                // Posten (Y-Werte gehen nach unten. Beträge sind RECHTSBÜNDIG bei der Linie X=500)
+                // Wenn die Beträge zu weit links/rechts stehen, ändere die 500
                 if (pos1 || betrag1 > 0) {
-                    draw(pos1, 60, 400);
-                    draw(formatCurrency(betrag1), 400, 400);
+                    draw(pos1, 60, 380);
+                    drawRight(formatCurrency(betrag1), 500, 380);
                 }
                 if (pos2 || betrag2 > 0) {
-                    draw(pos2, 60, 380);
-                    draw(formatCurrency(betrag2), 400, 380);
+                    draw(pos2, 60, 360);
+                    drawRight(formatCurrency(betrag2), 500, 360);
                 }
                 if (pos3 || betrag3 > 0) {
-                    draw(pos3, 60, 360);
-                    draw(formatCurrency(betrag3), 400, 360);
+                    draw(pos3, 60, 340);
+                    drawRight(formatCurrency(betrag3), 500, 340);
                 }
                 
-                // Gesamt-Summe
-                draw(formatCurrency(gesamtBetrag), 400, 330, 11, fontBold);
+                // Gesamt-Summe (Rechtsbündig)
+                drawRight(formatCurrency(gesamtBetrag), 500, 310, 11, fontBold);
 
                 // ---------------------------------------------------------
 

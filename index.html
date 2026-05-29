@@ -134,25 +134,35 @@
             try {
                 // 1. Lade das leere PDF vom Server
                 const url = 'template.pdf';
-                const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
+                const existingPdfBytes = await fetch(url).then(res => {
+                    if (!res.ok) throw new Error("Das PDF-Template konnte nicht gefunden werden.");
+                    return res.arrayBuffer();
+                });
 
                 // 2. Öffne das PDF mit pdf-lib
                 const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
                 const page = pdfDoc.getPages()[0];
 
-                // 3. Eigene Schriftart (Open Sans) einbinden
-                pdfDoc.registerFontkit(fontkit);
-                
-                const urlFontReg = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/opensans/static/OpenSans-Regular.ttf';
-                const urlFontBold = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/opensans/static/OpenSans-Bold.ttf';
-                
-                const [fontRegBytes, fontBoldBytes] = await Promise.all([
-                    fetch(urlFontReg).then(res => res.arrayBuffer()),
-                    fetch(urlFontBold).then(res => res.arrayBuffer())
-                ]);
-                
-                const fontReg = await pdfDoc.embedFont(fontRegBytes);
-                const fontBold = await pdfDoc.embedFont(fontBoldBytes);
+                // 3. Eigene Schriftart (Open Sans) einbinden - MIT RETTUNGS-FALLSCHIRM
+                let fontReg, fontBold;
+                try {
+                    pdfDoc.registerFontkit(fontkit);
+                    
+                    const urlFontReg = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/opensans/static/OpenSans-Regular.ttf';
+                    const urlFontBold = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/opensans/static/OpenSans-Bold.ttf';
+                    
+                    const [fontRegBytes, fontBoldBytes] = await Promise.all([
+                        fetch(urlFontReg).then(res => { if(!res.ok) throw new Error(); return res.arrayBuffer(); }),
+                        fetch(urlFontBold).then(res => { if(!res.ok) throw new Error(); return res.arrayBuffer(); })
+                    ]);
+                    
+                    fontReg = await pdfDoc.embedFont(fontRegBytes);
+                    fontBold = await pdfDoc.embedFont(fontBoldBytes);
+                } catch (fontError) {
+                    console.warn("Konnte Open Sans nicht laden. Nutze Standard-Schriftart als Fallback.");
+                    fontReg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+                    fontBold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+                }
 
                 // 4. Werte auslesen
                 const empfaenger = document.getElementById('inEmpfaenger').value;
@@ -248,12 +258,14 @@
                 document.body.removeChild(link);
 
                 status.innerText = "PDF erfolgreich heruntergeladen!";
-                status.classList.replace('text-gray-500', 'text-green-600');
+                status.classList.remove('text-red-600');
+                status.classList.add('text-green-600');
 
             } catch (error) {
                 console.error(error);
-                status.innerText = "Fehler beim Erstellen des PDFs.";
-                status.classList.replace('text-gray-500', 'text-red-600');
+                status.innerText = "Fehler: " + error.message + " (Hast du die Datei lokal vom Desktop geöffnet?)";
+                status.classList.remove('text-green-600');
+                status.classList.add('text-red-600');
             } finally {
                 btn.disabled = false;
                 btn.classList.remove('opacity-50');

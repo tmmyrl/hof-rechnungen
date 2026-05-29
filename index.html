@@ -192,39 +192,45 @@
 
                 // ---------------------------------------------------------
                 // --- KOORDINATEN ANPASSEN (WICHTIG!) ---
-                // X = Links/Rechts | Y = Oben/Unten (0 ist ganz UNTEN auf der Seite)
+                // X = Links/Rechts (0 ist ganz LINKS, ein A4-Blatt ist 595 breit)
+                // Y = Oben/Unten (0 ist ganz UNTEN, ein A4-Blatt ist 842 hoch)
                 // ---------------------------------------------------------
                 
-                const startX = 80;  // Neuer linker Rand (weiter nach rechts gerückt)
-                const rightX = 520; // Rechter Rand (für Beträge und Rechnungs-Infos)
+                const startX = 90;  // Linker Rand für Adresse und Posten (weiter nach rechts!)
+                const rightX = 520; // Rechter Rand für Beträge und Rechnungs-Infos
                 
-                // Empfänger-Block
-                draw(empfaenger, startX, 610, 11, fontBold);
-                draw(name, startX, 595);
-                draw(strasse, startX, 580);
-                draw(ort, startX, 565);
+                // === Y-HÖHEN (Anhand deines PDF-Tests berechnet!) ===
+                const yAdresse = 670; // Höhe für Adresse (Deutlich über der Tabelle)
+                const yPosten = 550;  // Start der Posten (Knapp unter dem Wort "BESCHREIBUNG")
+                const yGesamt = 480;  // Höhe für die Gesamtsumme
 
-                // Rechnungsdaten (jetzt mit integriertem Text und auf Höhe der Adresse!)
-                drawRight("RECHNUNGSNR.:   " + nr, rightX, 610);
-                drawRight("DATUM:   " + datum, rightX, 595);
-                drawRight("FÄLLIG:   " + faellig, rightX, 580);
+                // 1. Empfänger-Block (Links)
+                draw(empfaenger, startX, yAdresse, 11, fontBold);
+                draw(name, startX, yAdresse - 15);
+                draw(strasse, startX, yAdresse - 30);
+                draw(ort, startX, yAdresse - 45);
 
-                // Posten 
+                // 2. Rechnungsdaten (Rechtsbündig auf exakt gleicher Höhe wie Adresse!)
+                drawRight("RECHNUNGSNR.:   " + nr, rightX, yAdresse);
+                drawRight("DATUM:   " + datum, rightX, yAdresse - 15);
+                drawRight("FÄLLIG:   " + faellig, rightX, yAdresse - 30);
+
+                // 3. Posten (Y-Werte gehen schrittweise nach unten)
                 if (pos1 || betrag1 > 0) {
-                    draw(pos1, startX, 380);
-                    drawRight(formatCurrency(betrag1), rightX, 380);
+                    draw(pos1, startX, yPosten);
+                    drawRight(formatCurrency(betrag1), rightX, yPosten);
                 }
                 if (pos2 || betrag2 > 0) {
-                    draw(pos2, startX, 360);
-                    drawRight(formatCurrency(betrag2), rightX, 360);
+                    draw(pos2, startX, yPosten - 20);
+                    drawRight(formatCurrency(betrag2), rightX, yPosten - 20);
                 }
                 if (pos3 || betrag3 > 0) {
-                    draw(pos3, startX, 340);
-                    drawRight(formatCurrency(betrag3), rightX, 340);
+                    draw(pos3, startX, yPosten - 40);
+                    drawRight(formatCurrency(betrag3), rightX, yPosten - 40);
                 }
                 
-                // Gesamt-Summe (Rechtsbündig)
-                drawRight(formatCurrency(gesamtBetrag), rightX, 310, 11, fontBold);
+                // 4. Gesamt-Summe (Rechtsbündig)
+                drawRight(formatCurrency(gesamtBetrag), rightX, yGesamt, 11, fontBold);
 
                 // ---------------------------------------------------------
 
